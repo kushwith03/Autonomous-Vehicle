@@ -1,0 +1,282 @@
+"""
+autonomous_drive_pid.py
+Smooth autonomous driving using PID control on top of trained encoder + controller.
+Adds minimum throttle bias (0.3) for forward motion.
+
+Usage:
+1) Activate env:
+   E:\AutonomousVehicle\carla_py37\Scripts\activate
+
+2) Start CARLA:
+   cd E:\CARLA_0.9.13\WindowsNoEditor
+   CarlaUE4.exe -RenderOffScreen -quality-level=Low -ResX=640 -ResY=360 -dx11 -nosound -benchmark
+
+3) Run (in project root):
+   python carla_scripts\autonomous_drive_pid.py
+"""
+
+import os
+import sys
+import time
+import numpy as np
+import torch
+from collections import deque
+
+# ==== Project Paths ====
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, PROJECT_ROOT)
+
+# ==== Import Custom Modules ====
+try:
+    from dataloader import simple_normalize
+except Exception:
+    simple_normalize = None
+
+# ==== CARLA Import ====
+try:
+    import carla
+except Exception as e:
+    print("❌ CARLA import failed. Check CARLA python path.", e)
+    raise
+
+# ==== Config ====
+ENCODER_PATH = os.path.join(PROJECT_ROOT, 'results', 'model_autoencoder.pth')
+CONTROLLER_PATH = os.path.join(PROJECT_ROOT, 'results', 'controller_model.pth')
+DEVICE = torch.device('cpu')
+
+TEMPORAL_WINDOW = 1
+LATENT_DIM = 8192
+
+LOOP_HZ = 15.0
+DT = 1.0 / LOOP_HZ
+
+STEER_PID = {'Kp': 1.0, 'Ki': 0.0, 'Kd': 0.04, 'windup': 0.5}
+THROTTLE_PID = {'Kp': 0.5, 'Ki': 0.015, 'Kd': 0.015, 'windup': 0.5}
+
+STEER_EMA_ALPHA = 0.2
+THROTTLE_EMA_ALPHA = 0.2
+
+STEER_MIN, STEER_MAX = -1.0, 1.0
+THROTTLE_MIN, THROTTLE_MAX = 0.0, 0.6
+BRAKE_THRESHOLD = 0.6
+
+CAM_IMG_W, CAM_IMG_H = 128, 128  # Encoder input resolution
+
+# =====================================================
+#  PID + Smoothing Classes
+# =====================================================
+class PIDController:
+    def __init__(self, Kp=0.0, Ki=0.0, Kd=0.0, windup=1.0):
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
+        self.windup = windup
+        self.integral = 0.0
+        self.prev_error = 0.0
+
+    def reset(self):
+        self.integral = 0.0
+        self.prev_error = 0.0
+
+    def step(self, error, dt):
+        self.integral += error * dt
+        self.integral = np.clip(self.integral, -self.windup, self.windup)
+        derivative = (error - self.prev_error) / dt if dt > 0 else 0.0
+        out = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
+        self.prev_error = error
+        return out
+
+
+def ema(prev, new, alpha):
+    if prev is None:
+        return new
+    return alpha * new + (1 - alpha) * prev
+
+
+def normalize_latent_np(latent):
+    latent = np.asarray(latent, dtype=np.float32)
+    if latent.size == 0:
+        return latent
+    mean = latent.mean()
+    std = latent.std() if latent.std() > 1e-6 else 1e-6
+    return (latent - mean) / std
+
+
+# =====================================================
+#  Load Models (for state_dict)
+# =====================================================
+def load_models():
+    from train_test import AutoEncoder
+    from decision_control import ControlNet
+
+    encoder = AutoEncoder()
+    controller = ControlNet(LATENT_DIM)
+
+    encoder.load_state_dict(torch.load(ENCODER_PATH, map_location=DEVICE))
+    controller.load_state_dict(torch.load(CONTROLLER_PATH, map_location=DEVICE))
+
+    encoder.to(DEVICE).eval()
+    controller.to(DEVICE).eval()
+
+    print("✅ Loaded AutoEncoder and ControlNet (state_dict mode)")
+    return encoder, controller
+
+
+# =====================================================
+#  CARLA Setup
+# =====================================================
+def connect_carla(host='127.0.0.1', port=2000, timeout=10.0):
+    client = carla.Client(host, port)
+    client.set_timeout(timeout)
+    world = client.get_world()
+    print("✅ Connected to CARLA — Map:", world.get_map().name)
+    return client, world
+
+
+# =====================================================
+#  Camera setup
+# =====================================================
+def spawn_camera_and_listener(world, vehicle):
+    bp_lib = world.get_blueprint_library()
+    cam_bp = bp_lib.find('sensor.camera.rgb')
+    cam_bp.set_attribute('image_size_x', str(CAM_IMG_W))
+    cam_bp.set_attribute('image_size_y', str(CAM_IMG_H))
+    cam_bp.set_attribute('fov', '90')
+    cam_bp.set_attribute('sensor_tick', '0.2')  # capture 5 FPS
+    cam_transform = carla.Transform(carla.Location(x=1.5, z=2.0))
+    camera = world.spawn_actor(cam_bp, cam_transform, attach_to=vehicle)
+
+    image_storage = {'img': None}
+
+    def _listener(image):
+        array = np.frombuffer(image.raw_data, dtype=np.uint8)
+        array = array.reshape((image.height, image.width, 4))[:, :, :3]
+        image_storage['img'] = array
+
+    camera.listen(_listener)
+    time.sleep(1.5)
+    return camera, image_storage
+
+
+# =====================================================
+#  Main Driving Loop
+# =====================================================
+def main():
+    print("🚀 Initializing PID-based Autonomous Driving...")
+
+    encoder, controller = load_models()
+    client, world = connect_carla()
+
+    blueprint_lib = world.get_blueprint_library()
+    actors = world.get_actors()
+    vehicles = actors.filter('vehicle.*')
+    if vehicles:
+        vehicle = vehicles[0]
+        print("✅ Using existing vehicle:", vehicle.id)
+    else:
+        bp = blueprint_lib.filter('vehicle.*')[0]
+        spawn_point = world.get_map().get_spawn_points()[0]
+        vehicle = world.spawn_actor(bp, spawn_point)
+        print("🚗 Spawned vehicle:", vehicle.id)
+
+    camera, image_store = spawn_camera_and_listener(world, vehicle)
+    print("📸 Camera spawned and listener attached.")
+
+    pid_steer = PIDController(**STEER_PID)
+    pid_throttle = PIDController(**THROTTLE_PID)
+    steer_ema = None
+    throttle_ema = None
+
+    print(f"🔁 Starting control loop at {LOOP_HZ:.1f} Hz...")
+    last_time = time.time()
+
+    try:
+        while True:
+            cur_time = time.time()
+            elapsed = cur_time - last_time
+            if elapsed < DT:
+                time.sleep(max(0.0, DT - elapsed))
+                continue
+            last_time = cur_time
+
+            img = image_store.get('img', None)
+            if img is None:
+                print("⚠️ Waiting for camera frame...")
+                time.sleep(0.05)
+                continue
+
+            frame_rgb = img[:, :, ::-1]
+            tensor_img = torch.from_numpy(frame_rgb.astype(np.float32) / 255.0).permute(2, 0, 1).unsqueeze(0).to(DEVICE)
+
+            with torch.no_grad():
+                encoded = encoder.encoder(tensor_img)
+                z = encoded.view(1, -1)
+                znum = z.numel()
+                latent = np.zeros(LATENT_DIM, dtype=np.float32)
+                latent[:min(znum, LATENT_DIM)] = z.cpu().numpy().reshape(-1)[:LATENT_DIM]
+
+            latent = simple_normalize(latent) if simple_normalize else normalize_latent_np(latent)
+            x = torch.from_numpy(latent.astype(np.float32)).unsqueeze(0).to(DEVICE)
+
+            with torch.no_grad():
+                try:
+                    out = controller(x).cpu().numpy().squeeze()
+                    pred_steer, pred_throttle, pred_brake = float(out[0]), float(out[1]), float(out[2])
+                    # --- Clamp & scale raw outputs for stability ---
+                    pred_steer = np.clip(pred_steer, -0.6, 0.6)    # limit steering aggressiveness
+                    pred_throttle = np.clip(pred_throttle, 0.0, 0.8) * 0.5  # scale to 0–0.4 range
+                    pred_brake = np.clip(pred_brake, 0.0, 1.0)     # ensure non-negative brake
+
+                    print(f"🔍 raw_model_out: steer={pred_steer:.3f}, throttle={pred_throttle:.3f}, brake={pred_brake:.3f}")
+
+                except Exception as e:
+                    print("❌ Controller forward pass failed:", e)
+                    pred_steer, pred_throttle, pred_brake = 0.0, 0.0, 0.0
+
+            current_smoothed_steer = steer_ema if steer_ema is not None else 0.0
+            steer_error = pred_steer - current_smoothed_steer
+            steer_cmd = current_smoothed_steer + pid_steer.step(steer_error, elapsed)
+
+            current_smoothed_throttle = throttle_ema if throttle_ema is not None else 0.0
+            throttle_error = pred_throttle - current_smoothed_throttle
+            throttle_cmd = current_smoothed_throttle + pid_throttle.step(throttle_error, elapsed)
+
+            steer_cmd = ema(steer_ema, steer_cmd, STEER_EMA_ALPHA)
+            throttle_cmd = ema(throttle_ema, throttle_cmd, THROTTLE_EMA_ALPHA)
+            steer_ema = steer_cmd
+            throttle_ema = throttle_cmd
+
+            steer_cmd = float(np.clip(steer_cmd, STEER_MIN, STEER_MAX))
+            throttle_cmd = float(np.clip(throttle_cmd, THROTTLE_MIN, THROTTLE_MAX))
+
+            # 🚗 Add minimum throttle bias (0.3) for steady forward motion
+            if throttle_cmd < 0.3:
+                throttle_cmd = 0.3
+
+            brake_cmd = float(np.clip(pred_brake if pred_brake > BRAKE_THRESHOLD else 0.0, 0.0, 1.0))
+            if brake_cmd > 0.0:
+                throttle_cmd = 0.0
+
+            control = carla.VehicleControl()
+            control.steer = steer_cmd
+            control.throttle = throttle_cmd
+            control.brake = brake_cmd
+            vehicle.apply_control(control)
+
+            print(f"[{time.strftime('%H:%M:%S')}] steer={steer_cmd:.3f} thr={throttle_cmd:.3f} brake={brake_cmd:.3f}")
+
+    except KeyboardInterrupt:
+        print("\n🛑 Interrupted — stopping control loop.")
+    finally:
+        try:
+            camera.stop()
+            camera.destroy()
+        except Exception:
+            pass
+        pid_steer.reset()
+        pid_throttle.reset()
+        print("✅ PID controllers reset. Vehicle control released.")
+
+
+if __name__ == '__main__':
+    main()

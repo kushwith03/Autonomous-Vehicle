@@ -7,7 +7,8 @@ class SensorManager:
         self.world = world
         self.vehicle = vehicle
         self.config = config['simulation']['camera']
-        self.image_queue = queue.Queue()
+        # Use bounded queue to always have the latest frame
+        self.image_queue = queue.Queue(maxsize=1)
         self.camera = self._setup_camera()
 
     def _setup_camera(self):
@@ -22,7 +23,16 @@ class SensorManager:
                                    carla.Rotation(pitch=rot[0], yaw=rot[1], roll=rot[2]))
         
         camera = self.world.spawn_actor(bp, transform, attach_to=self.vehicle)
-        camera.listen(lambda data: self.image_queue.put(data))
+        # Bounded queue logic: if full, drop oldest
+        def on_image(data):
+            if self.image_queue.full():
+                try:
+                    self.image_queue.get_nowait()
+                except queue.Empty:
+                    pass
+            self.image_queue.put(data)
+
+        camera.listen(on_image)
         print("Camera sensor initialized.")
         return camera
 
@@ -36,7 +46,9 @@ class SensorManager:
     def process_image(carla_image):
         array = np.frombuffer(carla_image.raw_data, dtype=np.uint8)
         array = array.reshape((carla_image.height, carla_image.width, 4))
-        array = array[:, :, :3]  # RGBA to RGB
+        # BGRA -> RGB
+        array = array[:, :, :3]
+        array = array[:, :, ::-1]
         return array
 
     def destroy(self):

@@ -1,5 +1,4 @@
 import carla
-import time
 
 class CarlaClient:
     def __init__(self, host='localhost', port=2000, timeout=10.0):

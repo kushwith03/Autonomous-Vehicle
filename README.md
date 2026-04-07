@@ -12,12 +12,12 @@ By using latent features, the control model is more robust to noise and easier t
 ## Project Structure
 ```text
 autonomous-vehicle/
+├── carla_integration/  # CARLA client and sensor handling
 ├── configs/            # YAML configurations for all modules
 ├── data/               # Unified Dataset and preprocessing
+├── inference/          # Predictor class for real-time control
 ├── models/             # PyTorch definitions for AE and Controller
 ├── training/           # Scripts for Training and Feature Extraction
-├── inference/          # Predictor class for real-time control
-├── carla_integration/  # CARLA client and sensor handling
 ├── utils/              # Helper functions and Logger
 ├── main.py             # Single entry point CLI
 └── requirements.txt    # Project dependencies
@@ -52,27 +52,27 @@ python main.py --mode train_ae
 ```
 
 ### Stage 2a: Extract Latent Features
-Generate the latent dataset using a trained AutoEncoder checkpoint.
+Generate the latent dataset using a trained AutoEncoder checkpoint and a raw labels CSV.
 ```bash
-python main.py --mode extract_features --ae_path results/checkpoints/ae_final.pth --labels_csv path/to/recorded_controls.csv
+python main.py --mode extract_features --ae_path results/checkpoints/ae_epoch25_loss0.0012.pth --labels_csv path/to/recorded_controls.csv
 ```
 
 ### Stage 2b: Train Controller
 Train the driving logic using the extracted features.
 ```bash
-python main.py --mode train_ctrl --ae_path results/checkpoints/ae_final.pth
+python main.py --mode train_ctrl --latent_csv results/latent_features.csv
 ```
 
 ### Stage 3: Autonomous Driving
 Deploy the trained models in the CARLA simulator.
 ```bash
-python main.py --mode drive --ae_path results/checkpoints/ae_final.pth --ctrl_path results/checkpoints/ctrl_final.pth
+python main.py --mode drive --ae_path results/checkpoints/ae_epoch25_loss0.0012.pth --ctrl_path results/checkpoints/controller_epoch50_loss0.0005.pth
 ```
 
 ## Features
-- Modular design for easy experimentation.
-- Config-driven pipeline (no hardcoded parameters in logic).
-- TensorBoard integration for training visualization.
-- Robust CARLA sensor management and error handling.
-- Clean, human-readable code following PEP8 standards.
-```
+- **Modular Design:** Each stage is independent for easy experimentation.
+- **Config-Driven:** No hardcoded parameters in core logic.
+- **Optimized Performance:** Efficient $O(1)$ lookup for feature extraction.
+- **Safe Resource Management:** Proper CARLA actor cleanup and safe file handling.
+- **TensorBoard Integration:** Visualized training losses for better monitoring.
+- **Clean Code:** Human-readable code following senior engineering standards.

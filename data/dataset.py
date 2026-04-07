@@ -3,7 +3,6 @@ import torch
 import pandas as pd
 from torch.utils.data import Dataset
 from PIL import Image
-from torchvision import transforms
 
 class CarlaDataset(Dataset):
     def __init__(self, list_file, root_dir, transform=None, labels_csv=None):
@@ -26,9 +25,10 @@ class CarlaDataset(Dataset):
     def __getitem__(self, idx):
         rel_path = self.items[idx]
         img_path = os.path.join(self.root, rel_path.replace("/", os.sep))
-        image = Image.open(img_path).convert("RGB")
-        if self.transform:
-            image = self.transform(image)
+        with Image.open(img_path) as img:
+            image = img.convert("RGB")
+            if self.transform:
+                image = self.transform(image)
         
         if self.labels is not None:
             row = self.labels.iloc[idx]

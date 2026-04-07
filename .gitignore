@@ -25,6 +25,8 @@ wheels/
 results/
 datasets/
 *.csv
+!latent_features.csv
+!results/latent_features.csv
 *.pth
 *.log
 

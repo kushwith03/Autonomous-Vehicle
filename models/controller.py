@@ -9,8 +9,8 @@ class ControlNet(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.ReLU(),
-            nn.Linear(hidden_dim // 2, output_dim),
-            nn.Tanh() # steer, throttle, brake in range [-1, 1]
+            nn.Linear(hidden_dim // 2, output_dim)
+            # Removed Tanh to allow targets in native [0, 1] for throttle/brake and [-1, 1] for steer
         )
 
     def forward(self, z):

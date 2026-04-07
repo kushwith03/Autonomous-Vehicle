@@ -1,13 +1,12 @@
 import carla
 import numpy as np
-import cv2
 import queue
 
 class SensorManager:
     def __init__(self, world, vehicle, config):
         self.world = world
         self.vehicle = vehicle
-        self.config = config['carla']['camera']
+        self.config = config['simulation']['camera']
         self.image_queue = queue.Queue()
         self.camera = self._setup_camera()
 
@@ -39,3 +38,10 @@ class SensorManager:
         array = array.reshape((carla_image.height, carla_image.width, 4))
         array = array[:, :, :3]  # RGBA to RGB
         return array
+
+    def destroy(self):
+        if self.camera is not None:
+            self.camera.stop()
+            self.camera.destroy()
+            self.camera = None
+            print("Camera sensor destroyed.")

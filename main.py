@@ -3,7 +3,6 @@ import sys
 import os
 import torch
 import cv2
-import time
 import numpy as np
 
 # Add project root to path for imports
@@ -14,8 +13,6 @@ from training.train_stage1 import train_ae
 from training.train_stage2 import train_ctrl
 from training.extract_features import extract_features
 from inference.predictor import Predictor
-from carla_integration.carla_client import CarlaClient
-from carla_integration.sensor_manager import SensorManager
 
 def run_drive(args, cfg):
     """Runs autonomous driving in CARLA simulator."""
@@ -24,18 +21,26 @@ def run_drive(args, cfg):
     
     predictor = Predictor(args.ae_path, args.ctrl_path, device, cfg)
     
-    # Simulation settings from config
-    c_cfg = cfg['carla_env']
-    carla_client = CarlaClient(c_cfg['host'], c_cfg['port'], c_cfg['timeout'])
-    carla_client.set_weather(cfg['simulation']['weather'])
+    # Import carla integration AFTER setup_carla_env has added egg to sys.path
+    from carla_integration.carla_client import CarlaClient
+    from carla_integration.sensor_manager import SensorManager
+    import carla
     
-    vehicle = carla_client.spawn_vehicle(cfg['simulation']['vehicle_model'])
-    sensor_manager = SensorManager(carla_client.world, vehicle, cfg)
-    
-    print("[INFO] AI Control initialized. Press 'Q' or Ctrl+C to exit.")
+    # Initialize variables for safe cleanup
+    carla_client = None
+    sensor_manager = None
     
     try:
-        import carla
+        # Simulation settings from config
+        c_cfg = cfg['carla_env']
+        carla_client = CarlaClient(c_cfg['host'], c_cfg['port'], c_cfg['timeout'])
+        carla_client.set_weather(cfg['simulation']['weather'])
+        
+        vehicle = carla_client.spawn_vehicle(cfg['simulation']['vehicle_model'])
+        sensor_manager = SensorManager(carla_client.world, vehicle, cfg)
+        
+        print("[INFO] AI Control initialized. Press 'Q' or Ctrl+C to exit.")
+        
         while True:
             carla_image = sensor_manager.get_latest_image()
             if carla_image is None:
@@ -61,7 +66,10 @@ def run_drive(args, cfg):
     except Exception as e:
         print(f"[ERROR] Simulation error: {e}")
     finally:
-        carla_client.cleanup()
+        if sensor_manager:
+            sensor_manager.destroy()
+        if carla_client:
+            carla_client.cleanup()
         cv2.destroyAllWindows()
 
 def main():
@@ -97,10 +105,7 @@ def main():
         
     elif args.mode == "train_ctrl":
         latent_path = args.latent_csv if args.latent_csv else cfg['paths']['latent_data_csv']
-        if not os.path.exists(latent_path):
-            print(f"[ERROR] Latent data not found: {latent_path}")
-            return
-        train_ctrl(args.config, args.ae_path, latent_path)
+        train_ctrl(args.config, latent_path)
         
     elif args.mode == "drive":
         if not args.ae_path or not args.ctrl_path:

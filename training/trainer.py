@@ -20,13 +20,13 @@ class Trainer:
         total_loss = 0
         for i, (imgs, targets) in enumerate(dataloader):
             imgs = imgs.to(self.device)
-            if isinstance(targets, torch.Tensor):
-                targets = targets.to(self.device)
-            elif isinstance(targets, list):
-                # AutoEncoder case where targets are paths, we use imgs as targets
+            
+            # For AutoEncoder, targets are the images themselves
+            if self.model_name == "autoencoder":
                 targets = imgs
             else:
-                targets = imgs
+                if isinstance(targets, torch.Tensor):
+                    targets = targets.to(self.device)
 
             self.optimizer.zero_grad()
             output = self.model(imgs)

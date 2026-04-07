@@ -1,99 +1,78 @@
-# Autonomous Vehicle Simulation using CARLA
+# Production-Quality Autonomous Driving System for CARLA
 
-This project implements an end-to-end autonomous driving pipeline using the CARLA Simulator.  
-The system performs data collection, semantic segmentation, decision making, and real-time vehicle control inside the simulator.
+A modular and scalable autonomous driving pipeline using a two-stage Behavioral Cloning approach.
 
----
+## Overview
+This system decomposes the autonomous driving task into two stages:
+1. **Vision (AutoEncoder):** Learns to compress high-dimensional camera frames into a compact latent representation.
+2. **Control (ControlNet):** Learns to map these latent features to vehicle control signals (Steer, Throttle, Brake).
 
-## Project Overview
+By using latent features, the control model is more robust to noise and easier to train on limited datasets.
 
-The project consists of four major components:
+## Project Structure
+```text
+autonomous-vehicle/
+├── configs/            # YAML configurations for all modules
+├── data/               # Unified Dataset and preprocessing
+├── models/             # PyTorch definitions for AE and Controller
+├── training/           # Scripts for Training and Feature Extraction
+├── inference/          # Predictor class for real-time control
+├── carla_integration/  # CARLA client and sensor handling
+├── utils/              # Helper functions and Logger
+├── main.py             # Single entry point CLI
+└── requirements.txt    # Project dependencies
+```
 
-1. Data Collection from the CARLA simulator  
-2. Semantic Segmentation Model (PyTorch)  
-3. Decision-Making Model (Throttle, Steering, Brake)  
-4. Full Integration: real-time autonomous driving inside CARLA  
+## Setup Instructions
 
-The goal is to build a minimal autonomous driving stack capable of perceiving the scene and controlling the vehicle.
+### 1. Requirements
+- Python 3.7 or 3.8
+- CARLA Simulator (0.9.13 recommended)
+- GPU with CUDA support (recommended)
 
----
+### 2. Installation
+```bash
+git clone <your-repo-url>
+cd autonomous-vehicle
+pip install -r requirements.txt
+```
+
+### 3. Configuration
+Edit `configs/default_config.yaml` to set your:
+- Data paths (`data_root`, `train_list`)
+- CARLA egg path (`carla_env.egg_path`)
+- Training hyperparameters
+
+## Usage Guide
+
+### Stage 1: Train AutoEncoder
+Train the model to understand the visual environment.
+```bash
+python main.py --mode train_ae
+```
+
+### Stage 2a: Extract Latent Features
+Generate the latent dataset using a trained AutoEncoder checkpoint.
+```bash
+python main.py --mode extract_features --ae_path results/checkpoints/ae_final.pth --labels_csv path/to/recorded_controls.csv
+```
+
+### Stage 2b: Train Controller
+Train the driving logic using the extracted features.
+```bash
+python main.py --mode train_ctrl --ae_path results/checkpoints/ae_final.pth
+```
+
+### Stage 3: Autonomous Driving
+Deploy the trained models in the CARLA simulator.
+```bash
+python main.py --mode drive --ae_path results/checkpoints/ae_final.pth --ctrl_path results/checkpoints/ctrl_final.pth
+```
 
 ## Features
-
-- Automated dataset collection (RGB images, segmentation masks, expert driving commands)
-- Custom PyTorch segmentation model (U-Net)
-- Decision model trained on expert control data
-- Integrated inference pipeline for real-time driving
-- Utilities for dataset cleaning and preprocessing
-
----
-
-## Folder Structure
-
+- Modular design for easy experimentation.
+- Config-driven pipeline (no hardcoded parameters in logic).
+- TensorBoard integration for training visualization.
+- Robust CARLA sensor management and error handling.
+- Clean, human-readable code following PEP8 standards.
 ```
-AutonomousVehicle/
-│
-├── carla_scripts/
-│ ├── spawn_vehicle.py
-│ ├── collect_data.py
-│ ├── integrate_model.py
-│ ├── test_connection.py
-│
-├── segmentation/
-│ ├── dataset.py
-│ ├── train_segmentation.py
-│ ├── infer_segmentation.py
-│ ├── verify_dataset.py
-│ ├── convert_masks.py
-│
-├── decision_model/
-│ ├── train_decision_model.py
-│ ├── inference_local.py
-│
-├── utils/
-│ ├── merge_and_resize.py
-│ ├── remove_corrupt.py
-│
-├── demo/
-│ ├── sample_rgb.png
-│ ├── sample_mask.png
-│ ├── sample_colored_mask.png
-│
-├── requirements.txt
-├── README.md
-└── .gitignore
-```
-
-
----
-
-## Requirements
-
-- Python 3.7+
-- CARLA 0.9.x
-- PyTorch
-- OpenCV
-- NumPy
-- Matplotlib
-
----
-
-## Results
-
-- Semantic segmentation trained using custom CARLA dataset  
-- Decision model predicts steering/throttle/brake values  
-- Integrated system performs autonomous lane following inside CARLA  
-
-(Demo images/videos can be added in the `demo/` folder)
-
----
-
-## Future Work
-
-- Improve segmentation using DeepLab / transformer-based models  
-- Add Lidar + sensor fusion  
-- Implement waypoint navigation  
-- Reinforcement learning for improved control  
-
----
-

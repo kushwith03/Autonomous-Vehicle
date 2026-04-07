@@ -1,0 +1,54 @@
+# Centralized Configuration for Autonomous Driving System
+
+# --- Project Paths ---
+paths:
+  data_root: "datasets/combined"
+  train_list: "datasets/combined/train.txt"
+  val_list: "datasets/combined/val.txt"
+  results_dir: "results"
+  checkpoints_dir: "results/checkpoints"
+  logs_dir: "results/logs"
+  latent_data_csv: "results/latent_features.csv"
+
+# --- CARLA Environment ---
+carla_env:
+  # Path to CARLA .egg file (optional if already in PYTHONPATH)
+  egg_path: "E:/CARLA_0.9.13/WindowsNoEditor/PythonAPI/carla/dist/carla-0.9.13-py3.7-win-amd64.egg"
+  host: "localhost"
+  port: 2000
+  timeout: 10.0
+
+# --- Model Parameters ---
+models:
+  autoencoder:
+    img_size: [128, 128]
+    latent_dim: 8192
+  controller:
+    hidden_dim: 256
+    output_dim: 3
+
+# --- Training Hyperparameters ---
+training:
+  stage1: # AutoEncoder
+    epochs: 25
+    batch_size: 32
+    lr: 0.001
+    save_every: 5
+  stage2: # Controller
+    epochs: 50
+    batch_size: 64
+    lr: 0.0005
+    val_split: 0.2
+
+# --- Simulation Settings ---
+simulation:
+  weather: "ClearNoon"
+  vehicle_model: "vehicle.audi.a2"
+  camera:
+    width: 800
+    height: 600
+    fov: 90
+    location: [1.5, 0.0, 2.0]
+    rotation: [0.0, 0.0, 0.0]
+
+device: "auto"

@@ -35,4 +35,5 @@ def train_ae(config_path):
         if (epoch + 1) % cfg['training']['stage1']['save_every'] == 0:
             trainer.save_checkpoint(epoch + 1, loss)
     
+    trainer.close()
     print("Stage 1 training complete.")

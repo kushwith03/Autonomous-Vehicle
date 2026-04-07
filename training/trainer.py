@@ -11,9 +11,13 @@ class Trainer:
         self.device = device
         self.config = config
         self.model_name = model_name
-        self.writer = SummaryWriter(os.path.join(config['paths']['logs_dir'], model_name))
+        
+        log_path = os.path.join(config['paths']['logs_dir'], model_name)
+        if log_path: os.makedirs(log_path, exist_ok=True)
+        self.writer = SummaryWriter(log_path)
+        
         self.checkpoint_dir = config['paths']['checkpoints_dir']
-        os.makedirs(self.checkpoint_dir, exist_ok=True)
+        if self.checkpoint_dir: os.makedirs(self.checkpoint_dir, exist_ok=True)
 
     def train_epoch(self, dataloader, epoch):
         self.model.train()
@@ -21,7 +25,6 @@ class Trainer:
         for i, (imgs, targets) in enumerate(dataloader):
             imgs = imgs.to(self.device)
             
-            # For AutoEncoder, targets are the images themselves
             if self.model_name == "autoencoder":
                 targets = imgs
             else:
@@ -45,3 +48,6 @@ class Trainer:
         path = os.path.join(self.checkpoint_dir, f"{self.model_name}_epoch{epoch}_loss{loss:.4f}.pth")
         torch.save(self.model.state_dict(), path)
         print(f"[INFO] Checkpoint saved to {path}")
+
+    def close(self):
+        self.writer.close()

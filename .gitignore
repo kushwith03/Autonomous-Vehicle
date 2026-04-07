@@ -2,39 +2,19 @@
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
 .Python
 env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Data and Results (Excluding from Repo)
-results/
-datasets/
-*.csv
-!latent_features.csv
-!results/latent_features.csv
-*.pth
-*.log
-
-# Environments
-.env
-.venv
 venv/
-ENV/
+build/
+dist/
+*.egg-info/
+
+# Data and Results
+results/checkpoints/
+results/logs/
+datasets/
+!results/latent_features.csv
+!latent_features.csv
 
 # IDEs
 .vscode/

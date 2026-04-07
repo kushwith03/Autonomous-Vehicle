@@ -15,9 +15,13 @@ class CarlaDataset(Dataset):
         
         self.root = root_dir
         self.transform = transform
-        self.labels = None
+        self.label_map = {}
+        
         if labels_csv and os.path.exists(labels_csv):
-            self.labels = pd.read_csv(labels_csv)
+            df = pd.read_csv(labels_csv)
+            # Use basename of 'image' column to map to controls
+            df['basename'] = df['image'].apply(lambda x: os.path.basename(str(x)))
+            self.label_map = df.drop_duplicates('basename').set_index('basename')[['steer', 'throttle', 'brake']].to_dict('index')
 
     def __len__(self):
         return len(self.items)
@@ -25,14 +29,16 @@ class CarlaDataset(Dataset):
     def __getitem__(self, idx):
         rel_path = self.items[idx]
         img_path = os.path.join(self.root, rel_path.replace("/", os.sep))
+        filename = os.path.basename(rel_path)
+        
         with Image.open(img_path) as img:
             image = img.convert("RGB")
             if self.transform:
                 image = self.transform(image)
         
-        if self.labels is not None:
-            row = self.labels.iloc[idx]
-            controls = torch.tensor([row['steer'], row['throttle'], row['brake']], dtype=torch.float32)
+        if filename in self.label_map:
+            vals = self.label_map[filename]
+            controls = torch.tensor([vals['steer'], vals['throttle'], vals['brake']], dtype=torch.float32)
             return image, controls
             
         return image, rel_path

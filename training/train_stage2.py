@@ -69,4 +69,5 @@ def train_ctrl(config_path, latent_csv_path):
         print(f"Epoch [{epoch+1}/{cfg['training']['stage2']['epochs']}] Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
     
     trainer.save_checkpoint(cfg['training']['stage2']['epochs'], val_loss)
+    trainer.close()
     print("Stage 2 training complete.")

@@ -27,33 +27,21 @@ class SensorManager:
         return camera
 
     def get_latest_image(self):
-        """Returns the most recent image from the queue, discarding stale ones."""
         try:
-            # Drain queue to get the freshest frame for real-time control
-            while self.image_queue.qsize() > 1:
-                self.image_queue.get_nowait()
             return self.image_queue.get(timeout=2.0)
         except queue.Empty:
             return None
 
     @staticmethod
     def process_image(carla_image):
-        """Converts CARLA BGRA raw data to RGB numpy array."""
         array = np.frombuffer(carla_image.raw_data, dtype=np.uint8)
         array = array.reshape((carla_image.height, carla_image.width, 4))
-        # CARLA returns BGRA; convert to RGB for the PyTorch model
-        # 1. Drop Alpha channel (BGRA -> BGR)
-        # 2. Reverse channels (BGR -> RGB)
-        array = array[:, :, :3]
-        array = array[:, :, ::-1]
+        array = array[:, :, :3]  # RGBA to RGB
         return array
 
     def destroy(self):
         if self.camera is not None:
-            try:
-                self.camera.stop()
-                self.camera.destroy()
-            except Exception as e:
-                print(f"[WARN] Error destroying camera: {e}")
+            self.camera.stop()
+            self.camera.destroy()
             self.camera = None
             print("Camera sensor destroyed.")

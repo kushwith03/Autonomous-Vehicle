@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+build/
+dist/
+*.egg-info/
+
+# Data and Results
+results/checkpoints/
+results/logs/
+datasets/
+!results/latent_features.csv
+!latent_features.csv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

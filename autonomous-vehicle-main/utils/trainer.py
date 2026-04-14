@@ -12,14 +12,20 @@ class Trainer:
         self.checkpoint_dir = checkpoint_dir
         os.makedirs(checkpoint_dir, exist_ok=True)
 
-    def train_epoch(self, dataloader, epoch):
+    def train_epoch(self, dataloader, epoch, is_ae=False):
         self.model.train()
         total_loss = 0
         for i, (imgs, labels) in enumerate(dataloader):
             imgs = imgs.to(self.device)
+            labels = labels.to(self.device)
             self.optimizer.zero_grad()
             outputs = self.model(imgs)
-            loss = self.criterion(outputs, imgs) # Assuming AE for stage 1
+            
+            if is_ae:
+                loss = self.criterion(outputs, imgs)
+            else:
+                loss = self.criterion(outputs, labels)
+                
             loss.backward()
             self.optimizer.step()
             total_loss += loss.item()

@@ -50,7 +50,7 @@ def train_stage1(config_path):
 
     epochs = cfg['training']['stage1']['epochs']
     for epoch in range(epochs):
-        avg_loss = trainer.train_epoch(dataloader, epoch)
+        avg_loss = trainer.train_epoch(dataloader, epoch, is_ae=True)
         print(f"✅ Epoch {epoch+1}/{epochs} — Avg Loss: {avg_loss:.4f}")
         
         if (epoch + 1) % 5 == 0:

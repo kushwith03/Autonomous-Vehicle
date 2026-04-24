@@ -11,13 +11,15 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from utils.helpers import load_config, get_device, setup_carla_env
 from training.train_stage1 import train_ae
 from training.train_stage2 import train_ctrl
+from training.train_cnn_bc import train_cnn_bc
+from training.evaluate import evaluate_controller
 from training.extract_features import extract_features
 from inference.predictor import Predictor
 
 def run_drive(args, cfg):
     """Runs autonomous driving in CARLA simulator."""
     setup_carla_env(cfg)
-    device = get_device(cfg['device'])
+    device = get_device(cfg.get('device', 'auto'))
     
     predictor = Predictor(args.ae_path, args.ctrl_path, device, cfg)
     
@@ -76,7 +78,7 @@ def main():
     parser = argparse.ArgumentParser(description="Autonomous Driving Production Pipeline")
     parser.add_argument("--config", type=str, default="configs/default_config.yaml", help="Path to config file")
     parser.add_argument("--mode", type=str, required=True, 
-                        choices=["train_ae", "extract_features", "train_ctrl", "drive"], 
+                        choices=["train_ae", "extract_features", "train_ctrl", "train_cnn_bc", "evaluate", "drive"], 
                         help="Operation mode")
     
     # Optional arguments for checkpoints and data paths
@@ -106,6 +108,16 @@ def main():
     elif args.mode == "train_ctrl":
         latent_path = args.latent_csv if args.latent_csv else cfg['paths']['latent_data_csv']
         train_ctrl(args.config, latent_path)
+
+    elif args.mode == "train_cnn_bc":
+        train_cnn_bc(args.config)
+
+    elif args.mode == "evaluate":
+        latent_path = args.latent_csv if args.latent_csv else cfg['paths']['latent_data_csv']
+        if not args.ctrl_path or not latent_path:
+            print("[ERROR] --ctrl_path and --latent_csv are required for evaluation.")
+            return
+        evaluate_controller(args.config, latent_path, args.ctrl_path)
         
     elif args.mode == "drive":
         if not args.ae_path or not args.ctrl_path:

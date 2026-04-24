@@ -52,22 +52,20 @@ def train_ctrl(config_path, latent_csv_path):
     criterion = torch.nn.MSELoss()
     
     trainer = Trainer(model, optimizer, criterion, device, cfg, "controller")
-    
+
     print(f"Starting Controller training on {device}...")
+    best_loss = float('inf')
+
     for epoch in range(cfg['training']['stage2']['epochs']):
         train_loss = trainer.train_epoch(train_loader, epoch)
-        
-        # Simple validation
-        model.eval()
-        val_loss = 0
-        with torch.no_grad():
-            for xb, yb in val_loader:
-                xb, yb = xb.to(device), yb.to(device)
-                val_loss += criterion(model(xb), yb).item()
-        val_loss /= len(val_loader) if len(val_loader) > 0 else 1
-        
-        print(f"Epoch [{epoch+1}/{cfg['training']['stage2']['epochs']}] Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
-    
-    trainer.save_checkpoint(cfg['training']['stage2']['epochs'], val_loss)
+        val_loss = trainer.validate(val_loader, epoch)
+
+        print(f"Epoch [{epoch+1}/{cfg['training']['stage2']['epochs']}] Train: {train_loss:.4f} | Val: {val_loss:.4f}")
+
+        if val_loss < best_loss:
+            best_loss = val_loss
+            trainer.save_checkpoint(epoch + 1, val_loss, is_best=True)
+
+    trainer.save_checkpoint(cfg['training']['stage2']['epochs'], val_loss, is_best=False)
     trainer.close()
     print("Stage 2 training complete.")

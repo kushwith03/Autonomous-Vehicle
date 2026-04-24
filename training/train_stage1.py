@@ -20,7 +20,13 @@ def train_ae(config_path):
         print("Error: Dataset is empty. Check your paths in config.")
         return
 
-    loader = DataLoader(dataset, batch_size=cfg['training']['stage1']['batch_size'], shuffle=True)
+    # Split for validation
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_ds, val_ds = torch.utils.data.random_split(dataset, [train_size, val_size])
+
+    train_loader = DataLoader(train_ds, batch_size=cfg['training']['stage1']['batch_size'], shuffle=True)
+    val_loader = DataLoader(val_ds, batch_size=cfg['training']['stage1']['batch_size'])
     
     model = AutoEncoder()
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg['training']['stage1']['lr'])
@@ -29,11 +35,22 @@ def train_ae(config_path):
     trainer = Trainer(model, optimizer, criterion, device, cfg, "autoencoder")
     
     print(f"Starting AutoEncoder training on {device}...")
+    best_loss = float('inf')
+    
     for epoch in range(cfg['training']['stage1']['epochs']):
-        loss = trainer.train_epoch(loader, epoch)
-        print(f"Epoch [{epoch+1}/{cfg['training']['stage1']['epochs']}] Avg Loss: {loss:.4f}")
+        train_loss = trainer.train_epoch(train_loader, epoch)
+        val_loss = trainer.validate(val_loader, epoch)
+        
+        print(f"Epoch [{epoch+1}/{cfg['training']['stage1']['epochs']}] Train: {train_loss:.4f} | Val: {val_loss:.4f}")
+        
+        # Save best
+        if val_loss < best_loss:
+            best_loss = val_loss
+            trainer.save_checkpoint(epoch + 1, val_loss, is_best=True)
+            
         if (epoch + 1) % cfg['training']['stage1']['save_every'] == 0:
-            trainer.save_checkpoint(epoch + 1, loss)
+            trainer.save_checkpoint(epoch + 1, val_loss, is_best=False)
+
     
     trainer.close()
     print("Stage 1 training complete.")

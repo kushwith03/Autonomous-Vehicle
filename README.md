@@ -1,4 +1,4 @@
-# Modular Autonomous Driving Pipeline for CARLA
+#Autonomous Driving Pipeline for CARLA
 
 An interview-ready, production-quality autonomous vehicle control system featuring a decoupled perception-control architecture.
 
@@ -38,48 +38,6 @@ Autonomous-Vehicle/
 ├── tests/              # Unit tests for models and navigation metrics
 ├── main.py             # Unified CLI entry point
 └── requirements.txt    # Project dependencies
-```
-
----
-
-## 🚦 Quick Start
-
-### 1. Installation
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Training Pipeline
-
-**Stage 1: Perception**
-```bash
-python main.py --mode train_ae
-```
-
-**Stage 2a: Feature Extraction**
-Pre-calculate latents to speed up controller training by 10x.
-```bash
-python main.py --mode extract_features --ae_path results/checkpoints/autoencoder_best.pth --labels_csv datasets/carla_labels.csv
-```
-
-**Stage 2b: Control**
-```bash
-python main.py --mode train_ctrl --latent_csv results/latent_features.csv
-```
-
-### 3. Evaluation & Benchmarking
-```bash
-# Evaluate model accuracy vs baseline
-python main.py --mode evaluate --ctrl_path results/checkpoints/controller_best.pth --latent_csv results/latent_features.csv
-
-# Benchmark inference latency
-# Target: < 50ms (20+ FPS)
-python main.py --mode drive --ae_path ... --ctrl_path ... # or dedicated benchmark mode if added
-```
-
-### 4. Autonomous Driving
-```bash
-python main.py --mode drive --ae_path results/checkpoints/autoencoder_best.pth --ctrl_path results/checkpoints/controller_best.pth
 ```
 
 ---

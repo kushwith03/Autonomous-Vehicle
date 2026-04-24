@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 from PIL import Image
 
 class CarlaDataset(Dataset):
-    def __init__(self, list_file, root_dir, transform=None, labels_csv=None):
+    def __init__(self, list_file, root_dir, transform=None, labels_csv=None, return_path=False):
         if not os.path.exists(list_file):
             print(f"Warning: List file not found: {list_file}")
             self.items = []
@@ -16,6 +16,7 @@ class CarlaDataset(Dataset):
         self.root = root_dir
         self.transform = transform
         self.label_map = {}
+        self.return_path = return_path
         
         if labels_csv and os.path.exists(labels_csv):
             df = pd.read_csv(labels_csv)
@@ -43,4 +44,6 @@ class CarlaDataset(Dataset):
             # Consistent output for DataLoader even if labels are missing (e.g. for Stage 1)
             controls = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32)
             
+        if self.return_path:
+            return image, controls, rel_path
         return image, controls

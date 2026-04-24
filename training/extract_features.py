@@ -24,15 +24,8 @@ def extract_features(config_path, checkpoint_path, labels_csv, output_csv):
         print(f"[ERROR] Labels CSV not found: {labels_csv}")
         return
         
-    df_labels = pd.read_csv(labels_csv)
-    
-    # O(1) lookup dictionary for labels mapping filename -> controls
-    df_labels['basename'] = df_labels['image'].apply(lambda x: os.path.basename(str(x)))
-    # If there are duplicates, we keep the first one
-    labels_dict = df_labels.drop_duplicates(subset=['basename']).set_index('basename')[['steer', 'throttle', 'brake']].to_dict('index')
-    
     # Dataset needs to return path so we can match it with labels
-    dataset = CarlaDataset(cfg['paths']['train_list'], cfg['paths']['data_root'], transform)
+    dataset = CarlaDataset(cfg['paths']['train_list'], cfg['paths']['data_root'], transform, labels_csv=labels_csv, return_path=True)
     if len(dataset) == 0:
         print("[ERROR] Dataset is empty.")
         return
@@ -47,17 +40,14 @@ def extract_features(config_path, checkpoint_path, labels_csv, output_csv):
     
     print("Extracting features (this may take a while)...")
     with torch.no_grad():
-        for imgs, rel_paths in tqdm(loader):
+        for imgs, labels, rel_paths in tqdm(loader):
             imgs = imgs.to(device)
             latents = model.encode(imgs).cpu().numpy()
             
             for i, rel_path in enumerate(rel_paths):
-                filename = os.path.basename(rel_path)
-                
-                if filename in labels_dict:
-                    controls = labels_dict[filename]
-                    row = list(latents[i]) + [controls['steer'], controls['throttle'], controls['brake']]
-                    latent_data.append(row)
+                # labels[i] already contains [steer, throttle, brake] from CarlaDataset
+                row = list(latents[i]) + list(labels[i].numpy())
+                latent_data.append(row)
 
     if not latent_data:
         print("[ERROR] No matched latent features extracted! Check dataset and labels_csv.")

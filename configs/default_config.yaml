@@ -9,6 +9,7 @@ paths:
   checkpoints_dir: "results/checkpoints"
   logs_dir: "results/logs"
   latent_data_csv: "results/latent_features.csv"
+  carla_labels_csv: "datasets/carla_labels.csv"
 
 # --- CARLA Environment ---
 carla_env:
@@ -26,6 +27,9 @@ models:
   controller:
     hidden_dim: 256
     output_dim: 3
+  cnn_controller:
+    output_dim: 3
+    dropout: 0.3
 
 # --- Training Hyperparameters ---
 training:
@@ -39,6 +43,11 @@ training:
     batch_size: 64
     lr: 0.0005
     val_split: 0.2
+  cnn_bc:
+    epochs: 30
+    batch_size: 32
+    lr: 0.0003
+    save_every: 5
 
 # --- Simulation Settings ---
 simulation:

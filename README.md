@@ -1,4 +1,4 @@
-#Autonomous Driving Pipeline for CARLA
+# Autonomous Driving Pipeline for CARLA
 
 An interview-ready, production-quality autonomous vehicle control system featuring a decoupled perception-control architecture.
 

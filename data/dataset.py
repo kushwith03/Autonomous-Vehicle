@@ -39,6 +39,8 @@ class CarlaDataset(Dataset):
         if filename in self.label_map:
             vals = self.label_map[filename]
             controls = torch.tensor([vals['steer'], vals['throttle'], vals['brake']], dtype=torch.float32)
-            return image, controls
+        else:
+            # Consistent output for DataLoader even if labels are missing (e.g. for Stage 1)
+            controls = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32)
             
-        return image, rel_path
+        return image, controls

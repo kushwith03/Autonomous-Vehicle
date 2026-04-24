@@ -24,12 +24,7 @@ class Trainer:
         total_loss = 0
         for i, (imgs, targets) in enumerate(dataloader):
             imgs = imgs.to(self.device)
-            
-            if self.model_name == "autoencoder":
-                targets = imgs
-            else:
-                if isinstance(targets, torch.Tensor):
-                    targets = targets.to(self.device)
+            targets = imgs.to(self.device) if self.model_name == "autoencoder" else targets.to(self.device)
 
             self.optimizer.zero_grad()
             output = self.model(imgs)
@@ -40,14 +35,35 @@ class Trainer:
             total_loss += loss.item()
             if i % 10 == 0:
                 step = epoch * len(dataloader) + i
-                self.writer.add_scalar(f"Loss/train_{self.model_name}", loss.item(), step)
+                self.writer.add_scalar(f"Loss/train", loss.item(), step)
         
         return total_loss / len(dataloader)
 
-    def save_checkpoint(self, epoch, loss):
-        path = os.path.join(self.checkpoint_dir, f"{self.model_name}_epoch{epoch}_loss{loss:.4f}.pth")
+    def validate(self, dataloader, epoch):
+        self.model.eval()
+        total_loss = 0
+        with torch.no_grad():
+            for imgs, targets in dataloader:
+                imgs = imgs.to(self.device)
+                targets = imgs.to(self.device) if self.model_name == "autoencoder" else targets.to(self.device)
+                
+                output = self.model(imgs)
+                loss = self.criterion(output, targets)
+                total_loss += loss.item()
+        
+        avg_loss = total_loss / len(dataloader) if len(dataloader) > 0 else 0
+        self.writer.add_scalar(f"Loss/val", avg_loss, epoch)
+        return avg_loss
+
+    def save_checkpoint(self, epoch, loss, is_best=False):
+        filename = f"{self.model_name}_best.pth" if is_best else f"{self.model_name}_latest.pth"
+        path = os.path.join(self.checkpoint_dir, filename)
         torch.save(self.model.state_dict(), path)
-        print(f"[INFO] Checkpoint saved to {path}")
+        if not is_best:
+            # Also save periodic ones if desired, but keep it clean
+            periodic_path = os.path.join(self.checkpoint_dir, f"{self.model_name}_ep{epoch}.pth")
+            torch.save(self.model.state_dict(), periodic_path)
+
 
     def close(self):
         self.writer.close()

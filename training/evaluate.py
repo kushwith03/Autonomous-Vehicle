@@ -74,12 +74,3 @@ def evaluate_controller(config_path, latent_csv, checkpoint_path):
 
     return metrics
 
-if __name__ == "__main__":
-    import yaml
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="configs/default_config.yaml")
-    parser.add_argument("--latent_csv", type=str, required=True)
-    parser.add_argument("--checkpoint", type=str, required=True)
-    args = parser.parse_args()
-    evaluate_controller(args.config, args.latent_csv, args.checkpoint)

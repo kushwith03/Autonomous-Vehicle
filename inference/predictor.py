@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import time
 from torchvision import transforms
 from models.autoencoder import AutoEncoder
 from models.controller import ControlNet
@@ -26,20 +27,23 @@ class Predictor:
             transforms.Resize(tuple(config['models']['autoencoder']['img_size'])),
             transforms.ToTensor(),
         ])
+        self.last_latency_ms = 0.0
         print("Models loaded and Predictor ready.")
 
     def predict(self, image_array):
+        t0 = time.perf_counter()
         with torch.no_grad():
             tensor = self.transform(image_array).unsqueeze(0).to(self.device)
             latent = self.ae.encode(tensor)
             actions = self.ctrl(latent).cpu().numpy().flatten()
+        t1 = time.perf_counter()
+        self.last_latency_ms = (t1 - t0) * 1000
         
-        steer, throttle, brake = actions
-        
-        # Scaling and clipping (assuming Tanh was removed and model trained on raw values)
-        steer = float(np.clip(steer, -1.0, 1.0))
-        throttle = float(np.clip(throttle, 0.0, 1.0))
-        brake = float(np.clip(brake, 0.0, 1.0))
+        # Scaling and clipping (assuming model trained on raw values)
+
+        steer = float(np.clip(actions[0], -1.0, 1.0))
+        throttle = float(np.clip(actions[1], 0.0, 1.0))
+        brake = float(np.clip(actions[2], 0.0, 1.0))
         
         # Simple heuristic: if braking, reduce throttle
         if brake > 0.1:

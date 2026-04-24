@@ -3,7 +3,7 @@ import sys
 import os
 
 # Add the project root to sys.path to allow imports from utils
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.metrics import compute_navigation_error, compute_improvement_pct
 

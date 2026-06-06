@@ -1,59 +1,49 @@
 # Autonomous Driving Pipeline for CARLA
 
-An interview-ready, production-quality autonomous vehicle control system featuring a decoupled perception-control architecture.
+A production-grade autonomous vehicle control system featuring a decoupled perception-control architecture and behavioral cloning logic.
 
-## 🚀 Overview
-This project implements a robust **Two-Stage Behavioral Cloning** pipeline designed for the CARLA simulator. By separating visual perception from vehicle control, the system achieves better generalization and more efficient training compared to traditional end-to-end models.
+## Overview
 
-### The Two-Stage Architecture
-1.  **Perception (AutoEncoder):** A Convolutional AutoEncoder compresses $128 \times 128 \times 3$ RGB images into an $8192$-dimensional latent vector. This forces the model to learn a compact, semantic representation of the driving environment.
-2.  **Control (ControlNet):** A Multi-Layer Perceptron (MLP) maps these latent features directly to vehicle control signals (Steer, Throttle, Brake).
+This project implements a robust **Two-Stage Behavioral Cloning** pipeline designed for the CARLA simulator. By separating visual perception from vehicle control, the system achieves better generalization and safety compared to traditional end-to-end models.
 
-**Why this approach?**
-- **Data Efficiency:** The perception module can be pre-trained on large unlabeled datasets.
-- **Explainability:** It is easier to debug whether a failure occurred in "seeing" the road or "deciding" how to drive.
-- **Robustness:** Latent features are less sensitive to pixel-level noise compared to raw image inputs.
+### Architecture
+1. **Perception (AutoEncoder):** A Convolutional AutoEncoder compresses $128 \times 128 \times 3$ RGB images into an $8192$-dimensional latent vector, forcing the model to learn semantic representations of the road.
+2. **Control (ControlNet):** A Multi-Layer Perceptron (MLP) maps these latent features directly to vehicle control signals (Steer, Throttle, Brake).
 
----
+- **GitHub Repository:** [github.com/kushwith03/Autonomous-Vehicle](https://github.com/kushwith03/Autonomous-Vehicle)
 
-## 🛠️ Tech Stack
+## Tech Stack
+
 - **Deep Learning:** PyTorch, Torchvision
 - **Simulation:** CARLA Simulator (0.9.13+)
 - **Computer Vision:** OpenCV, PIL
-- **Data Handling:** NumPy, Pandas, Scikit-learn
-- **Monitoring:** TensorBoard, TQDM
+- **Analytics:** NumPy, Pandas, Scikit-learn, TensorBoard
 
----
+## Key Engineering Features
 
-## 📂 Project Structure
+- **Decoupled Design:** High explainability by separating visual understanding from control logic.
+- **Latency Tracking:** Real-time monitoring achieving **sub-50ms inference latency** for real-time safety.
+- **Behavioral Cloning:** Trained using CNN-based models to predict steering and throttle control from human driver data.
+- **Validation Loops:** Automated validation during training stages to prevent overfitting and ensure precision.
+
+## Project Structure
+
 ```text
 Autonomous-Vehicle/
-├── carla_integration/  # CARLA client, weather, and sensor management
-├── configs/            # Centralized YAML configuration
-├── data/               # Stable Dataset classes (handling images & labels)
-├── inference/          # Real-time Predictor with latency tracking
-├── models/             # AE, ControlNet, and CNNController (baseline)
-├── training/           # Modular training scripts with validation loops
-├── utils/              # Latency benchmarks, metrics, and helpers
-├── tests/              # Unit tests for models and navigation metrics
-├── main.py             # Unified CLI entry point
-└── requirements.txt    # Project dependencies
+├── carla_integration/  # Simulation client and weather management
+├── models/             # AE, ControlNet, and CNN architectures
+├── training/           # Modular training scripts and validation
+├── inference/          # Real-time predictor with performance tracking
+├── configs/            # Centralized YAML hyperparameter control
+└── utils/              # Latency benchmarks and navigation metrics
 ```
 
----
+## Performance Target
+- **Inference Latency:** $\le 50\text{ms}$
+- **Navigation Precision:** Optimized steering and throttle control across complex simulated environments.
 
-## ✨ Key Engineering Features
-- **Validation Loops:** All training stages include automated validation to prevent overfitting.
-- **Latency Tracking:** Real-time monitoring of inference speed (ms) to ensure simulation stability.
-- **Type-Safe Data Loading:** `CarlaDataset` ensures consistent output formats, preventing runtime crashes during training.
-- **Decoupled Configuration:** Full control over hyperparameters via `configs/default_config.yaml` without touching code.
-- **Unit Tested:** Includes tests for model architectures and navigation metrics (MAE, RMSE).
-- **CI/CD Ready:** GitHub Actions workflow included for automated linting and testing.
+## Author
 
----
-
-## 📊 Performance Metrics
-The system is evaluated on:
-- **MAE (Mean Absolute Error):** For steering, throttle, and brake accuracy.
-- **Improvement over Baseline:** Performance compared to a "Zero-Control" or "Mean-Control" model.
-- **Inference Latency:** Target is $\le 50\text{ms}$ for real-time safety.
+**R Khushwith Kumar**  
+Software Engineer | Deep Learning Enthusiast  
+[Portfolio](https://rkhushwith-portfolio.vercel.app) • [GitHub](https://github.com/kushwith03) • [LinkedIn](https://linkedin.com/in/kushwith03)

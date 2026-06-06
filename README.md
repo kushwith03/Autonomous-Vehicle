@@ -46,4 +46,4 @@ Autonomous-Vehicle/
 
 **R Khushwith Kumar**  
 Software Engineer | Deep Learning Enthusiast  
-[Portfolio](https://rkhushwith-portfolio.vercel.app) • [GitHub](https://github.com/kushwith03) • [LinkedIn](https://linkedin.com/in/kushwith03)
+[Portfolio](https://rkhushwith-portfolio.vercel.app) • [GitHub](https://github.com/kushwith03) • [LinkedIn](https://www.linkedin.com/in/kushwith03/)
